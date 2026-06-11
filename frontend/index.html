@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>E-Commerce Admin Dashboard</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; padding: 40px; background-color: #FDF6F4; color: #3D2612; }
+        h1 { color: #3D2612; border-bottom: 3px solid #F3CFC6; padding-bottom: 10px; margin-top: 0; }
+        h2 { color: #3D2612; margin-top: 0; font-size: 1.4rem; }
+        section { background: white; padding: 25px; margin-bottom: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(61, 38, 18, 0.05); border: 1px solid rgba(243, 191, 198, 0.3); }
+        p { color: #5A3E25; font-size: 0.95rem; }
+        input { padding: 10px 14px; margin: 6px; border-radius: 6px; border: 2px solid #F3CFC6; background-color: #FFFDFD; color: #3D2612; font-size: 0.95rem; outline: none; }
+        input:focus { border-color: #3D2612; }
+        button { padding: 10px 18px; margin: 6px; border-radius: 6px; border: none; font-weight: bold; font-size: 0.95rem; cursor: pointer; background-color: #F3CFC6; color: #3D2612; }
+        button:hover { opacity: 0.9; }
+        .btn-action { padding: 6px 12px; font-size: 0.85rem; }
+        .btn-update { background-color: #D3E7D3; color: #1E4620; }
+        .btn-delete { background-color: #FADBD8; color: #78281F; }
+        table { width: 100%; border-collapse: separate; border-spacing: 0; margin-top: 15px; background: white; border-radius: 8px; overflow: hidden; border: 2px solid #F3CFC6; }
+        th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid rgba(243, 191, 198, 0.4); }
+        th { background-color: #F3CFC6; color: #3D2612; font-weight: bold; }
+        .badge { background: #3D2612; color: #F3CFC6; padding: 4px 10px; border-radius: 20px; font-weight: bold; font-size: 0.85rem; }
+    </style>
+</head>
+<body>
+
+    <h1>E-Commerce Management Dashboard</h1>
+
+    <section>
+        <h2>1. Insert Operation (Add Product)</h2>
+        <input type="text" id="pName" placeholder="Product Name">
+        <input type="number" id="pPrice" placeholder="Price" step="0.01">
+        <input type="number" id="pCat" placeholder="Category ID">
+        <input type="number" id="pStock" placeholder="Stock Quantity">
+        <button onclick="addProduct()">Add Product</button>
+    </section>
+
+    <section>
+        <h2>2. Stored Procedure Demo (Filter Category)</h2>
+        <input type="number" id="filterCatId" placeholder="Enter Category ID">
+        <button onclick="runProcedure()">Filter via Procedure</button>
+    </section>
+
+    <section>
+        <h2>3. Trigger Demo (Simulate Purchase)</h2>
+        <p>Purchasing an item will cause a database trigger to automatically reduce its stock level.</p>
+        <input type="number" id="tProdId" placeholder="Product ID">
+        <input type="number" id="tQty" placeholder="Quantity to Buy">
+        <button onclick="runTrigger()">Simulate Order Line Insert</button>
+    </section>
+
+    <section>
+        <h2>Product Records (Display, Update, Delete)</h2>
+        <button onclick="loadProducts()">Refresh Product List</button>
+        <table>
+            <thead>
+                <tr>
+                    <th>Product ID</th>
+                    <th>Category ID</th>
+                    <th>Name</th>
+                    <th>Price</th>
+                    <th>Stock</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="productTableBody"></tbody>
+        </table>
+    </section>
+
+    <script>
+        const API_URL = 'http://localhost:8080';
+        async function loadProducts(customUrl = `${API_URL}/products`) {
+            try {
+                const res = await fetch(customUrl);
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.message);
+
+                const tbody = document.getElementById('productTableBody');
+                tbody.innerHTML = '';
+                
+                data.forEach(p => {
+                    tbody.innerHTML += `
+                        <tr>
+                            <td><strong>#${p.product_id}</strong></td>
+                            <td><span class="badge">${p.category_id || 'N/A'}</span></td>
+                            <td>${p.name}</td>
+                            <td><input type="number" id="price-${p.product_id}" value="${p.price}" step="0.01" style="width:90px"></td>
+                            <td><input type="number" id="stock-${p.product_id}" value="${p.stock}" style="width:70px"></td>
+                            <td>
+                                <button class="btn-action btn-update" onclick="updateProduct(${p.product_id})">Update</button>
+                                <button class="btn-action btn-delete" onclick="deleteProduct(${p.product_id})">Delete</button>
+                            </td>
+                        </tr>
+                    `;
+                });
+            } catch (err) {
+                alert('❌ Error fetching products: ' + err.message);
+            }
+        }
+
+        async function addProduct() {
+            const name = document.getElementById('pName').value;
+            const price = parseFloat(document.getElementById('pPrice').value);
+            const category_id = parseInt(document.getElementById('pCat').value);
+            const stock = parseInt(document.getElementById('pStock').value);
+
+            if (!name || isNaN(price) || isNaN(category_id) || isNaN(stock)) {
+                alert("Please fill out all fields with valid values!");
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_URL}/products`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, price, category_id, stock })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.message);
+
+                alert('✅ Product added successfully!');
+                document.getElementById('pName').value = '';
+                document.getElementById('pPrice').value = '';
+                document.getElementById('pCat').value = '';
+                document.getElementById('pStock').value = '';
+                loadProducts();
+            } catch (err) {
+                alert('❌ Insert Operation Failed: ' + err.message);
+            }
+        }
+
+        async function updateProduct(id) {
+            const price = parseFloat(document.getElementById(`price-${id}`).value);
+            const stock = parseInt(document.getElementById(`stock-${id}`).value);
+
+            try {
+                const res = await fetch(`${API_URL}/products/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ price, stock })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.message);
+
+                alert('✅ Product updated successfully!');
+                loadProducts();
+            } catch (err) {
+                alert('❌ Update Operation Failed: ' + err.message);
+            }
+        }
+
+        async function deleteProduct(id) {
+            if (!confirm("Are you sure you want to delete this product?")) return;
+            try {
+                const res = await fetch(`${API_URL}/products/${id}`, { method: 'DELETE' });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.message);
+
+                alert('✅ Product deleted successfully!');
+                loadProducts();
+            } catch (err) {
+                alert('❌ Delete Operation Failed: ' + err.message);
+            }
+        }
+
+        function runProcedure() {
+            const catId = document.getElementById('filterCatId').value;
+            if (!catId) return alert('Please enter a Category ID');
+            loadProducts(`${API_URL}/products/category/${catId}`);
+        }
+
+        async function runTrigger() {
+            const product_id = parseInt(document.getElementById('tProdId').value);
+            const quantity = parseInt(document.getElementById('tQty').value);
+
+            if (isNaN(product_id) || isNaN(quantity)) {
+                alert("Please enter a valid Product ID and Quantity!");
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_URL}/orders/simulate-trigger`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ order_id: 1, product_id, quantity, price: 10.00 })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.message);
+
+                alert('✅ Trigger Fired! Stock automatically reduced inside MySQL.');
+                loadProducts();
+            } catch (err) {
+                alert('❌ Trigger Operation Failed: ' + err.message);
+            }
+        }
+
+        loadProducts();
+    </script>
+</body>
+</html>
